@@ -36,7 +36,7 @@
   <body class="bg-light dark:bg-dark">
     <div id="root"></div>
     <script type="module">
-import React, { useState, useEffect, useCallback, useMemo, cloneElement } from 'https://aistudiocdn.com/react@^19.2.0';
+import React, { useState, useEffect, useCallback, useMemo, cloneElement, useRef } from 'https://aistudiocdn.com/react@^19.2.0';
 import ReactDOM from 'https://aistudiocdn.com/react-dom@^19.2.0/client';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'https://aistudiocdn.com/recharts@^3.4.1';
 
@@ -84,6 +84,22 @@ const TrashIcon = (props) => (
     React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.124-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.077-2.09.921-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" })
   )
 );
+const CogIcon = (props) => (
+    React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", ...props },
+        React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M10.343 3.94c.09-.542.56-1.007 1.11-1.226l.554-.221a6.75 6.75 0 013.692 0l.554.221c.55.219 1.02.684 1.11 1.226l.099.598a6.75 6.75 0 012.875 2.119l.444.405a1.125 1.125 0 010 1.592l-.444.405a6.75 6.75 0 01-2.875 2.119l-.099.598c-.09.542-.56 1.007-1.11 1.226l-.554.221a6.75 6.75 0 01-3.692 0l-.554-.221c-.55-.219-1.02-.684-1.11-1.226l-.099-.598a6.75 6.75 0 01-2.875-2.119l-.444-.405a1.125 1.125 0 010-1.592l.444.405a6.75 6.75 0 012.875-2.119l.099-.598z" }),
+        React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M15 12a3 3 0 11-6 0 3 3 0 016 0z" })
+    )
+);
+const DownloadIcon = (props) => (
+    React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", ...props },
+        React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" })
+    )
+);
+const UploadIcon = (props) => (
+    React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", ...props },
+        React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" })
+    )
+);
 
 // --- From hooks/useOvertimeData.ts ---
 const ENTRIES_STORAGE_KEY = 'overtime_entries';
@@ -98,13 +114,10 @@ const useOvertimeData = () => {
     try {
       const storedEntries = localStorage.getItem(ENTRIES_STORAGE_KEY);
       if (storedEntries) setEntries(JSON.parse(storedEntries));
-
       const storedLocations = localStorage.getItem(LOCATIONS_STORAGE_KEY);
       if (storedLocations) setLocations(JSON.parse(storedLocations));
-      
       const storedLocationColors = localStorage.getItem(LOCATION_COLORS_STORAGE_KEY);
       if (storedLocationColors) setLocationColors(JSON.parse(storedLocationColors));
-
     } catch (error) {
       console.error("Failed to load data from localStorage", error);
     }
@@ -119,9 +132,7 @@ const useOvertimeData = () => {
   }, []);
 
   const manageLocation = useCallback((location) => {
-    if (!location || locations.includes(location)) {
-      return;
-    }
+    if (!location || locations.includes(location)) return;
     
     const updatedLocations = [...locations, location];
     const colorIndex = locations.length % LOCATION_COLOR_PALETTE.length;
@@ -130,7 +141,6 @@ const useOvertimeData = () => {
 
     setLocations(updatedLocations);
     setLocationColors(updatedColors);
-    
     saveData(LOCATIONS_STORAGE_KEY, updatedLocations);
     saveData(LOCATION_COLORS_STORAGE_KEY, updatedColors);
   }, [locations, locationColors, saveData]);
@@ -149,9 +159,7 @@ const useOvertimeData = () => {
 
   const updateEntry = useCallback((updatedEntry) => {
     manageLocation(updatedEntry.location);
-    const newEntries = entries.map(entry =>
-      entry.id === updatedEntry.id ? updatedEntry : entry
-    );
+    const newEntries = entries.map(entry => entry.id === updatedEntry.id ? updatedEntry : entry);
     saveEntries(newEntries);
   }, [entries, saveEntries, manageLocation]);
 
@@ -162,9 +170,120 @@ const useOvertimeData = () => {
         saveEntries(newEntries);
     }
   }, [entries, saveEntries]);
+  
+  const importData = useCallback((data) => {
+    if (data && Array.isArray(data.entries) && Array.isArray(data.locations) && typeof data.locationColors === 'object') {
+      const sortedEntries = [...data.entries].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      
+      setEntries(sortedEntries);
+      setLocations(data.locations);
+      setLocationColors(data.locationColors);
+      
+      saveData(ENTRIES_STORAGE_KEY, sortedEntries);
+      saveData(LOCATIONS_STORAGE_KEY, data.locations);
+      saveData(LOCATION_COLORS_STORAGE_KEY, data.locationColors);
+      
+      return true;
+    }
+    return false;
+  }, [saveData]);
 
-  return { entries, locations, locationColors, addEntry, updateEntry, deleteEntry };
+  return { entries, locations, locationColors, addEntry, updateEntry, deleteEntry, importData };
 };
+
+// --- From components/SettingsView.tsx ---
+const SettingsView = ({ allData, onImportData }) => {
+  const fileInputRef = useRef(null);
+
+  const handleExport = () => {
+    try {
+      const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(allData, null, 2))}`;
+      const link = document.createElement("a");
+      const date = new Date().toISOString().split('T')[0];
+      link.href = jsonString;
+      link.download = `overtime_tracker_backup_${date}.json`;
+      link.click();
+    } catch (error) {
+      console.error("Error exporting data:", error);
+      alert("Si è verificato un errore durante l'esportazione dei dati.");
+    }
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== "application/json") {
+      alert("Seleziona un file di backup JSON valido.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result;
+        if (typeof text !== 'string') {
+            throw new Error("File could not be read");
+        }
+        const data = JSON.parse(text);
+        
+        const confirmed = window.confirm("Sei sicuro? L'importazione sovrascriverà tutti i dati attuali. Questa azione è irreversibile.");
+        if (confirmed) {
+          const success = onImportData(data);
+          if (success) {
+            alert("Dati importati con successo! L'app verrà ricaricata.");
+            window.location.reload();
+          } else {
+            alert("Il file di backup non è valido o è corrotto.");
+          }
+        }
+      } catch (error) {
+        console.error("Error importing data:", error);
+        alert("Si è verificato un errore durante l'importazione. Il file potrebbe essere corrotto.");
+      }
+    };
+    reader.readAsText(file);
+    if(event.target) event.target.value = ''; 
+  };
+
+  return React.createElement('div', { className: "max-w-2xl mx-auto space-y-8" },
+    React.createElement('div', { className: "text-center" },
+      React.createElement('h2', { className: "text-2xl font-bold text-gray-800 dark:text-gray-200" }, "Impostazioni"),
+      React.createElement('p', { className: "text-gray-500 dark:text-gray-400" }, "Gestisci i dati della tua applicazione.")
+    ),
+    React.createElement('div', { className: "bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md" },
+      React.createElement('h3', { className: "text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200" }, "Backup e Ripristino"),
+      React.createElement('div', { className: "space-y-4" },
+        React.createElement('div', null,
+          React.createElement('button', {
+            onClick: handleExport,
+            className: "w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-secondary hover:bg-accent focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-secondary"
+          },
+            React.createElement(DownloadIcon, { className: "w-5 h-5 mr-2" }),
+            "Esporta Dati"
+          ),
+          React.createElement('p', { className: "mt-2 text-sm text-gray-500 dark:text-gray-400" }, "Salva una copia di tutti i tuoi dati in un file JSON. Conservalo in un posto sicuro.")
+        ),
+        React.createElement('div', null,
+          React.createElement('input', { type: "file", ref: fileInputRef, onChange: handleFileChange, className: "hidden", accept: ".json" }),
+          React.createElement('button', {
+            onClick: handleImportClick,
+            className: "w-full inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-base font-medium rounded-md shadow-sm text-dark dark:text-light bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+          },
+            React.createElement(UploadIcon, { className: "w-5 h-5 mr-2" }),
+            "Importa Dati"
+          ),
+          React.createElement('p', { className: "mt-2 text-sm text-gray-500 dark:text-gray-400" }, "Ripristina i dati da un file di backup. Attenzione: i dati attuali verranno sovrascritti.")
+        )
+      )
+    )
+  );
+};
+
 
 // --- From components/Dashboard.tsx ---
 const Dashboard = ({ entries, onNavigate, onAddClick }) => {
@@ -473,9 +592,28 @@ const StatsView = ({ entries }) => {
 
 // --- From App.tsx ---
 const App = () => {
-  const { entries, locations, locationColors, addEntry, updateEntry, deleteEntry } = useOvertimeData();
+  const { entries, locations, locationColors, addEntry, updateEntry, deleteEntry, importData } = useOvertimeData();
   const [currentView, setCurrentView] = useState('dashboard');
   const [editingEntry, setEditingEntry] = useState(null);
+
+  useEffect(() => {
+    const LAST_PROMPT_KEY = 'overtime_last_backup_prompt_month';
+    try {
+        const lastPromptMonth = localStorage.getItem(LAST_PROMPT_KEY);
+        const currentMonth = new Date().getMonth().toString();
+        if (lastPromptMonth !== currentMonth) {
+            setTimeout(() => {
+                const confirmed = window.confirm("Promemoria: ti consigliamo di effettuare un backup dei tuoi dati regolarmente. Vuoi andare alla pagina delle impostazioni per esportarli ora?");
+                if(confirmed) {
+                    setCurrentView('settings');
+                }
+                localStorage.setItem(LAST_PROMPT_KEY, currentMonth);
+            }, 1500);
+        }
+    } catch (error) {
+        console.error("Failed to check backup reminder:", error);
+    }
+  }, []);
 
   const handleAddClick = () => {
     setEditingEntry(null);
@@ -507,6 +645,9 @@ const App = () => {
         return React.createElement(HistoryList, { entries, onEdit: handleEditClick, onDelete: deleteEntry, locations, locationColors });
       case 'stats':
         return React.createElement(StatsView, { entries });
+      case 'settings':
+        const allData = { entries, locations, locationColors };
+        return React.createElement(SettingsView, { allData: allData, onImportData: importData });
       default:
         return React.createElement(Dashboard, { entries, onNavigate: setCurrentView, onAddClick: handleAddClick });
     }
@@ -540,7 +681,8 @@ const App = () => {
       React.createElement('div', { className: "flex flex-col p-4 space-y-2" },
         React.createElement(DesktopNavItem, { view: "dashboard", label: "Home", icon: React.createElement(HomeIcon, { className: "w-6 h-6" }) }),
         React.createElement(DesktopNavItem, { view: "history", label: "Storico", icon: React.createElement(CalendarIcon, { className: "w-6 h-6" }) }),
-        React.createElement(DesktopNavItem, { view: "stats", label: "Statistiche", icon: React.createElement(ChartBarIcon, { className: "w-6 h-6" }) })
+        React.createElement(DesktopNavItem, { view: "stats", label: "Statistiche", icon: React.createElement(ChartBarIcon, { className: "w-6 h-6" }) }),
+        React.createElement(DesktopNavItem, { view: "settings", label: "Impostazioni", icon: React.createElement(CogIcon, { className: "w-6 h-6" }) })
       ),
       React.createElement('div', { className: "mt-auto p-4" },
         React.createElement('button', {
@@ -567,7 +709,8 @@ const App = () => {
       React.createElement('div', { className: "flex justify-around items-center h-full" },
         React.createElement(NavItem, { view: "dashboard", label: "Home", icon: React.createElement(HomeIcon, { className: "w-6 h-6" }) }),
         React.createElement(NavItem, { view: "history", label: "Storico", icon: React.createElement(CalendarIcon, { className: "w-6 h-6" }) }),
-        React.createElement(NavItem, { view: "stats", label: "Statistiche", icon: React.createElement(ChartBarIcon, { className: "w-6 h-6" }) })
+        React.createElement(NavItem, { view: "stats", label: "Statistiche", icon: React.createElement(ChartBarIcon, { className: "w-6 h-6" }) }),
+        React.createElement(NavItem, { view: "settings", label: "Impostazioni", icon: React.createElement(CogIcon, { className: "w-6 h-6" }) })
       )
     )
   );
