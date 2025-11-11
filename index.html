@@ -17,8 +17,8 @@
               'accent': '#42A5F5',
               'light': '#F5F5F5',
               'dark': '#212121',
-              'absence': '#D32F2F',
-              'absence-dark': '#B71C1C',
+              'permission': '#D32F2F',
+              'permission-dark': '#B71C1C',
             }
           }
         }
@@ -55,8 +55,22 @@ const COLOR_PALETTE = [
   'bg-red-200 text-red-800 dark:bg-red-700 dark:text-red-100',
   'bg-teal-200 text-teal-800 dark:bg-teal-700 dark:text-teal-100',
 ];
+const LOCATION_COLOR_PALETTE = [
+  'bg-cyan-200 text-cyan-800 dark:bg-cyan-700 dark:text-cyan-100',
+  'bg-lime-200 text-lime-800 dark:bg-lime-700 dark:text-lime-100',
+  'bg-orange-200 text-orange-800 dark:bg-orange-700 dark:text-orange-100',
+  'bg-emerald-200 text-emerald-800 dark:bg-emerald-700 dark:text-emerald-100',
+  'bg-sky-200 text-sky-800 dark:bg-sky-700 dark:text-sky-100',
+  'bg-rose-200 text-rose-800 dark:bg-rose-700 dark:text-rose-100',
+];
 const DEFAULT_COLOR = 'bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-gray-200';
-const INITIAL_ABSENCE_COLORS = {
+
+const INITIAL_LOCATIONS = ['Machiavelli', 'Bologna'];
+const INITIAL_LOCATION_COLORS = {
+  'Machiavelli': 'bg-cyan-200 text-cyan-800 dark:bg-cyan-700 dark:text-cyan-100',
+  'Bologna': 'bg-lime-200 text-lime-800 dark:bg-lime-700 dark:text-lime-100',
+};
+const INITIAL_PERMISSION_COLORS = {
   'Malattia': 'bg-red-200 text-red-800 dark:bg-red-700 dark:text-red-100',
   'Ferie': 'bg-yellow-200 text-yellow-800 dark:bg-yellow-700 dark:text-yellow-100',
   'Permesso Retribuito': 'bg-blue-200 text-blue-800 dark:bg-blue-700 dark:text-blue-100',
@@ -82,15 +96,15 @@ const MagnifyingGlassIcon = (props) => ( React.createElement('svg', { xmlns: "ht
 const LOG_ENTRIES_KEY = 'log_entries';
 const LOCATIONS_KEY = 'log_locations';
 const LOCATION_COLORS_KEY = 'log_location_colors';
-const ABSENCE_TYPES_KEY = 'log_absence_types';
-const ABSENCE_TYPE_COLORS_KEY = 'log_absence_type_colors';
+const PERMISSION_TYPES_KEY = 'log_permission_types';
+const PERMISSION_TYPE_COLORS_KEY = 'log_permission_type_colors';
 
 const useLogData = () => {
   const [entries, setEntries] = useState([]);
-  const [locations, setLocations] = useState([]);
-  const [locationColors, setLocationColors] = useState({});
-  const [absenceTypes, setAbsenceTypes] = useState(['Ferie', 'Malattia', 'Permesso Retribuito', 'Permesso non Retribuito']);
-  const [absenceTypeColors, setAbsenceTypeColors] = useState(INITIAL_ABSENCE_COLORS);
+  const [locations, setLocations] = useState(INITIAL_LOCATIONS);
+  const [locationColors, setLocationColors] = useState(INITIAL_LOCATION_COLORS);
+  const [permissionTypes, setPermissionTypes] = useState(['Ferie', 'Malattia', 'Permesso Retribuito', 'Permesso non Retribuito']);
+  const [permissionTypeColors, setPermissionTypeColors] = useState(INITIAL_PERMISSION_COLORS);
 
   const saveData = useCallback((key, data) => {
     try {
@@ -104,29 +118,34 @@ const useLogData = () => {
       if (storedEntries) setEntries(JSON.parse(storedEntries));
       
       const storedLocations = localStorage.getItem(LOCATIONS_KEY);
-      if (storedLocations) setLocations(JSON.parse(storedLocations));
+      if (storedLocations) {
+          const parsed = JSON.parse(storedLocations);
+          setLocations(prev => [...new Set([...prev, ...parsed])]);
+      }
       
       const storedLocationColors = localStorage.getItem(LOCATION_COLORS_KEY);
-      if (storedLocationColors) setLocationColors(JSON.parse(storedLocationColors));
+      if (storedLocationColors) {
+          setLocationColors(prev => ({ ...prev, ...JSON.parse(storedLocationColors) }));
+      }
 
-      const storedAbsenceTypes = localStorage.getItem(ABSENCE_TYPES_KEY);
-      if (storedAbsenceTypes) setAbsenceTypes(JSON.parse(storedAbsenceTypes));
+      const storedPermissionTypes = localStorage.getItem(PERMISSION_TYPES_KEY);
+      if (storedPermissionTypes) setPermissionTypes(JSON.parse(storedPermissionTypes));
 
-      const storedAbsenceTypeColors = localStorage.getItem(ABSENCE_TYPE_COLORS_KEY);
-      if (storedAbsenceTypeColors) {
-          setAbsenceTypeColors(prev => ({ ...INITIAL_ABSENCE_COLORS, ...JSON.parse(storedAbsenceTypeColors) }));
+      const storedPermissionTypeColors = localStorage.getItem(PERMISSION_TYPE_COLORS_KEY);
+      if (storedPermissionTypeColors) {
+          setPermissionTypeColors(prev => ({ ...INITIAL_PERMISSION_COLORS, ...JSON.parse(storedPermissionTypeColors) }));
       }
     } catch (error) { console.error("Failed to load data from localStorage", error); }
   }, [saveData]);
 
-  const manageMetadata = useCallback((key, value, state, setter, colorState, colorSetter, storageKey, colorStorageKey) => {
+  const manageMetadata = useCallback((key, value, state, setter, colorState, colorSetter, storageKey, colorStorageKey, palette) => {
     if (!value || state.includes(value)) return;
 
     const updatedState = [...state, value];
     
     const usedColors = Object.values(colorState);
-    const availableColors = COLOR_PALETTE.filter(c => !usedColors.includes(c));
-    const newColor = availableColors.length > 0 ? availableColors[0] : COLOR_PALETTE[state.length % COLOR_PALETTE.length];
+    const availableColors = palette.filter(c => !usedColors.includes(c));
+    const newColor = availableColors.length > 0 ? availableColors[0] : palette[state.length % palette.length];
 
     const updatedColors = { ...colorState, [value]: newColor };
 
@@ -136,8 +155,8 @@ const useLogData = () => {
     saveData(colorStorageKey, updatedColors);
   }, [saveData]);
   
-  const manageLocation = useCallback((location) => manageMetadata('location', location, locations, setLocations, locationColors, setLocationColors, LOCATIONS_KEY, LOCATION_COLORS_KEY), [locations, locationColors, manageMetadata]);
-  const manageAbsenceType = useCallback((type) => manageMetadata('absenceType', type, absenceTypes, setAbsenceTypes, absenceTypeColors, setAbsenceTypeColors, ABSENCE_TYPES_KEY, ABSENCE_TYPE_COLORS_KEY), [absenceTypes, absenceTypeColors, manageMetadata]);
+  const manageLocation = useCallback((location) => manageMetadata('location', location, locations, setLocations, locationColors, setLocationColors, LOCATIONS_KEY, LOCATION_COLORS_KEY, LOCATION_COLOR_PALETTE), [locations, locationColors, manageMetadata]);
+  const managePermissionType = useCallback((type) => manageMetadata('permissionType', type, permissionTypes, setPermissionTypes, permissionTypeColors, setPermissionTypeColors, PERMISSION_TYPES_KEY, PERMISSION_TYPE_COLORS_KEY, COLOR_PALETTE), [permissionTypes, permissionTypeColors, manageMetadata]);
 
   const saveEntries = useCallback((newEntries) => {
     const sortedEntries = [...newEntries].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -147,17 +166,17 @@ const useLogData = () => {
 
   const addEntry = useCallback((newEntry) => {
     if (newEntry.type === 'overtime') manageLocation(newEntry.location);
-    if (newEntry.type === 'absence') manageAbsenceType(newEntry.absenceType);
+    if (newEntry.type === 'permission') managePermissionType(newEntry.permissionType);
     const entryWithId = { ...newEntry, id: new Date().toISOString() + Math.random() };
     saveEntries([...entries, entryWithId]);
-  }, [entries, saveEntries, manageLocation, manageAbsenceType]);
+  }, [entries, saveEntries, manageLocation, managePermissionType]);
 
   const updateEntry = useCallback((updatedEntry) => {
     if (updatedEntry.type === 'overtime') manageLocation(updatedEntry.location);
-    if (updatedEntry.type === 'absence') manageAbsenceType(updatedEntry.absenceType);
+    if (updatedEntry.type === 'permission') managePermissionType(updatedEntry.permissionType);
     const newEntries = entries.map(entry => entry.id === updatedEntry.id ? updatedEntry : entry);
     saveEntries(newEntries);
-  }, [entries, saveEntries, manageLocation, manageAbsenceType]);
+  }, [entries, saveEntries, manageLocation, managePermissionType]);
 
   const deleteEntry = useCallback((id) => {
     if (window.confirm("Sei sicuro di voler cancellare questa registrazione?")) {
@@ -171,22 +190,22 @@ const useLogData = () => {
         setEntries(sortedEntries);
         setLocations(data.locations || []);
         setLocationColors(data.locationColors || {});
-        setAbsenceTypes(data.absenceTypes || ['Ferie', 'Malattia', 'Permesso Retribuito', 'Permesso non Retribuito']);
-        setAbsenceTypeColors(data.absenceTypeColors || {});
+        setPermissionTypes(data.permissionTypes || ['Ferie', 'Malattia', 'Permesso Retribuito', 'Permesso non Retribuito']);
+        setPermissionTypeColors(data.permissionTypeColors || {});
         
         saveData(LOG_ENTRIES_KEY, sortedEntries);
         saveData(LOCATIONS_KEY, data.locations || []);
         saveData(LOCATION_COLORS_KEY, data.locationColors || {});
-        saveData(ABSENCE_TYPES_KEY, data.absenceTypes || []);
-        saveData(ABSENCE_TYPE_COLORS_KEY, data.absenceTypeColors || {});
+        saveData(PERMISSION_TYPES_KEY, data.permissionTypes || []);
+        saveData(PERMISSION_TYPE_COLORS_KEY, data.permissionTypeColors || {});
         return true;
     }
     return false;
   }, [saveData]);
 
   const allData = useMemo(() => ({
-    entries, locations, locationColors, absenceTypes, absenceTypeColors
-  }), [entries, locations, locationColors, absenceTypes, absenceTypeColors]);
+    entries, locations, locationColors, permissionTypes, permissionTypeColors
+  }), [entries, locations, locationColors, permissionTypes, permissionTypeColors]);
 
   return { ...allData, addEntry, updateEntry, deleteEntry, importData };
 };
@@ -253,12 +272,12 @@ const OvertimeForm = ({ onSave, onCancel, existingEntry, locations }) => {
 };
 
 
-// --- From components/AbsenceForm.tsx ---
-const AbsenceForm = ({ onSave, onCancel, existingEntry, absenceTypes }) => {
+// --- From components/PermissionForm.tsx ---
+const PermissionForm = ({ onSave, onCancel, existingEntry, permissionTypes }) => {
   const [date, setDate] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
-  const [absenceType, setAbsenceType] = useState('');
+  const [permissionType, setPermissionType] = useState('');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
 
@@ -267,7 +286,7 @@ const AbsenceForm = ({ onSave, onCancel, existingEntry, absenceTypes }) => {
       setDate(existingEntry.date);
       setStartTime(existingEntry.startTime);
       setEndTime(existingEntry.endTime);
-      setAbsenceType(existingEntry.absenceType);
+      setPermissionType(existingEntry.permissionType);
       setNotes(existingEntry.notes);
     } else {
       setDate(new Date().toISOString().split('T')[0]);
@@ -287,61 +306,61 @@ const AbsenceForm = ({ onSave, onCancel, existingEntry, absenceTypes }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (durationMinutes <= 0) return setError('L\'orario di fine deve essere successivo a quello di inizio.');
-    if (!absenceType.trim()) return setError('Il campo Giustificativo è obbligatorio.');
+    if (!permissionType.trim()) return setError('Il campo Giustificativo è obbligatorio.');
     setError('');
-    const entryData = { type: 'absence', date, startTime, endTime, absenceType: absenceType.trim(), duration: durationMinutes, notes };
+    const entryData = { type: 'permission', date, startTime, endTime, permissionType: permissionType.trim(), duration: durationMinutes, notes };
     onSave(existingEntry ? { ...existingEntry, ...entryData } : entryData);
   };
 
   return React.createElement('div', { className: "max-w-lg mx-auto bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md" },
-    React.createElement('h2', { className: "text-2xl font-bold mb-6 text-center text-gray-800 dark:text-gray-200" }, existingEntry ? 'Modifica Assenza' : 'Aggiungi Assenza'),
+    React.createElement('h2', { className: "text-2xl font-bold mb-6 text-center text-gray-800 dark:text-gray-200" }, existingEntry ? 'Modifica Permesso' : 'Aggiungi Permesso'),
     React.createElement('form', { onSubmit: handleSubmit, className: "space-y-4" },
       React.createElement('div', null,
-        React.createElement('label', { htmlFor: "date-absence", className: "block text-sm font-medium text-gray-700 dark:text-gray-300" }, "Data"),
-        React.createElement('input', { type: "date", id: "date-absence", value: date, onChange: (e) => setDate(e.target.value), required: true, className: "mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm" })
+        React.createElement('label', { htmlFor: "date-permission", className: "block text-sm font-medium text-gray-700 dark:text-gray-300" }, "Data"),
+        React.createElement('input', { type: "date", id: "date-permission", value: date, onChange: (e) => setDate(e.target.value), required: true, className: "mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm" })
       ),
        React.createElement('div', { className: "grid grid-cols-2 gap-4" },
-        React.createElement('div', null, React.createElement('label', { htmlFor: "startTime-absence", className: "block text-sm font-medium text-gray-700 dark:text-gray-300" }, "Inizio"), React.createElement('input', { type: "time", id: "startTime-absence", value: startTime, onChange: (e) => setStartTime(e.target.value), required: true, className: "mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm" })),
-        React.createElement('div', null, React.createElement('label', { htmlFor: "endTime-absence", className: "block text-sm font-medium text-gray-700 dark:text-gray-300" }, "Fine"), React.createElement('input', { type: "time", id: "endTime-absence", value: endTime, onChange: (e) => setEndTime(e.target.value), required: true, className: "mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm" }))
+        React.createElement('div', null, React.createElement('label', { htmlFor: "startTime-permission", className: "block text-sm font-medium text-gray-700 dark:text-gray-300" }, "Inizio"), React.createElement('input', { type: "time", id: "startTime-permission", value: startTime, onChange: (e) => setStartTime(e.target.value), required: true, className: "mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm" })),
+        React.createElement('div', null, React.createElement('label', { htmlFor: "endTime-permission", className: "block text-sm font-medium text-gray-700 dark:text-gray-300" }, "Fine"), React.createElement('input', { type: "time", id: "endTime-permission", value: endTime, onChange: (e) => setEndTime(e.target.value), required: true, className: "mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm" }))
       ),
-      React.createElement('div', { className: "text-center p-3 bg-gray-100 dark:bg-gray-700 rounded-md" }, React.createElement('span', { className: "text-sm font-medium text-gray-600 dark:text-gray-300" }, "Durata: "), React.createElement('span', { className: "text-lg font-bold text-absence dark:text-red-400" }, formatDuration(durationMinutes))),
+      React.createElement('div', { className: "text-center p-3 bg-gray-100 dark:bg-gray-700 rounded-md" }, React.createElement('span', { className: "text-sm font-medium text-gray-600 dark:text-gray-300" }, "Durata: "), React.createElement('span', { className: "text-lg font-bold text-permission dark:text-red-400" }, formatDuration(durationMinutes))),
       error && React.createElement('p', { className: "text-sm text-red-500 text-center" }, error),
       React.createElement('div', null, 
-        React.createElement('label', { htmlFor: "absenceType", className: "block text-sm font-medium text-gray-700 dark:text-gray-300" }, "Giustificativo"), 
-        React.createElement('input', { id: "absenceType", list: "absence-types-list", value: absenceType, onChange: (e) => setAbsenceType(e.target.value), required: true, className: "mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm", placeholder: "Es. Ferie, Permesso..." }), React.createElement('datalist', { id: "absence-types-list" }, absenceTypes.map(type => React.createElement('option', { key: type, value: type }))),
+        React.createElement('label', { htmlFor: "permissionType", className: "block text-sm font-medium text-gray-700 dark:text-gray-300" }, "Giustificativo"), 
+        React.createElement('input', { id: "permissionType", list: "permission-types-list", value: permissionType, onChange: (e) => setPermissionType(e.target.value), required: true, className: "mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm", placeholder: "Es. Ferie, Permesso..." }), React.createElement('datalist', { id: "permission-types-list" }, permissionTypes.map(type => React.createElement('option', { key: type, value: type }))),
         React.createElement('p', { className: "mt-1 text-xs text-gray-500 dark:text-gray-400" }, "Puoi digitare un nuovo tipo di giustificativo se non è in elenco.")
       ),
-      React.createElement('div', null, React.createElement('label', { htmlFor: "notes-absence", className: "block text-sm font-medium text-gray-700 dark:text-gray-300" }, "Note"), React.createElement('textarea', { id: "notes-absence", rows: 3, value: notes, onChange: (e) => setNotes(e.target.value), className: "mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm" })),
-      React.createElement('div', { className: "flex justify-end space-x-3 pt-2" }, React.createElement('button', { type: "button", onClick: onCancel, className: "px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 dark:bg-gray-600 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500" }, "Annulla"), React.createElement('button', { type: "submit", className: "px-4 py-2 text-sm font-medium text-white bg-absence rounded-md hover:bg-absence-dark" }, "Salva Assenza"))
+      React.createElement('div', null, React.createElement('label', { htmlFor: "notes-permission", className: "block text-sm font-medium text-gray-700 dark:text-gray-300" }, "Note"), React.createElement('textarea', { id: "notes-permission", rows: 3, value: notes, onChange: (e) => setNotes(e.target.value), className: "mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm" })),
+      React.createElement('div', { className: "flex justify-end space-x-3 pt-2" }, React.createElement('button', { type: "button", onClick: onCancel, className: "px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 dark:bg-gray-600 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500" }, "Annulla"), React.createElement('button', { type: "submit", className: "px-4 py-2 text-sm font-medium text-white bg-permission rounded-md hover:bg-permission-dark" }, "Salva Permesso"))
     )
   );
 };
 
 
 // --- From components/Dashboard.tsx ---
-const Dashboard = ({ onAddOvertime, onAddAbsence }) => {
+const Dashboard = ({ onAddOvertime, onAddPermission }) => {
   return React.createElement('div', { className: "flex flex-col items-center justify-center h-full text-center" },
     React.createElement('h2', { className: "text-3xl font-bold text-gray-800 dark:text-gray-200 mb-2" }, "Benvenuto nel tuo Registro Ore"),
-    React.createElement('p', { className: "text-lg text-gray-500 dark:text-gray-400 mb-8" }, "Inizia registrando le tue ore di straordinario o i tuoi giorni di assenza."),
+    React.createElement('p', { className: "text-lg text-gray-500 dark:text-gray-400 mb-8" }, "Inizia registrando le tue ore di straordinario o i tuoi giorni di permesso."),
     React.createElement('div', { className: "flex flex-col md:flex-row justify-center items-center gap-4 mt-8" },
       React.createElement('button', { onClick: onAddOvertime, className: "w-64 md:w-auto inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-primary hover:bg-primary-dark" }, React.createElement(PlusIcon, { className: "w-5 h-5 mr-2" }), "Aggiungi Straordinario"),
-      React.createElement('button', { onClick: onAddAbsence, className: "w-64 md:w-auto inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-absence hover:bg-absence-dark" }, React.createElement(BedIcon, { className: "w-5 h-5 mr-2" }), "Aggiungi Assenza")
+      React.createElement('button', { onClick: onAddPermission, className: "w-64 md:w-auto inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-permission hover:bg-permission-dark" }, React.createElement(BedIcon, { className: "w-5 h-5 mr-2" }), "Aggiungi Permesso")
     )
   );
 };
 
 // --- From components/EntryCard.tsx ---
-const EntryCard = ({ entry, locationColors, absenceTypeColors, onEdit, onDelete }) => {
+const EntryCard = ({ entry, locationColors, permissionTypeColors, onEdit, onDelete }) => {
   const isOvertime = entry.type === 'overtime';
-  const colorClass = isOvertime ? (locationColors[entry.location] || DEFAULT_COLOR) : (absenceTypeColors[entry.absenceType] || DEFAULT_COLOR);
-  const tag = isOvertime ? entry.location : entry.absenceType;
+  const colorClass = isOvertime ? (locationColors[entry.location] || DEFAULT_COLOR) : (permissionTypeColors[entry.permissionType] || DEFAULT_COLOR);
+  const tag = isOvertime ? entry.location : entry.permissionType;
   const formatDate = (dateString) => new Date(dateString).toLocaleDateString('it-IT', { weekday: 'short', year: 'numeric', month: 'long', day: 'numeric' });
   const formatDuration = (minutes) => `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, '0')}m`;
 
   return React.createElement('div', { className: "bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md flex flex-col md:flex-row md:items-center md:justify-between" },
     React.createElement('div', { className: "flex-grow" },
       React.createElement('div', { className: "flex justify-between items-start" },
-        React.createElement('div', null, React.createElement('p', { className: `font-bold text-lg ${isOvertime ? 'text-primary dark:text-accent' : 'text-absence dark:text-red-400'}` }, formatDate(entry.date)), React.createElement('p', { className: "text-sm text-gray-600 dark:text-gray-400" }, `${entry.startTime} - ${entry.endTime}`)),
+        React.createElement('div', null, React.createElement('p', { className: `font-bold text-lg ${isOvertime ? 'text-primary dark:text-accent' : 'text-permission dark:text-red-400'}` }, formatDate(entry.date)), React.createElement('p', { className: "text-sm text-gray-600 dark:text-gray-400" }, `${entry.startTime} - ${entry.endTime}`)),
         React.createElement('div', { className: "text-right md:hidden" }, React.createElement('p', { className: "font-bold text-xl text-gray-800 dark:text-gray-200" }, formatDuration(entry.duration)), React.createElement('span', { className: `px-2 py-1 text-xs font-semibold rounded-full ${colorClass}` }, tag))
       ),
       React.createElement('p', { className: "mt-2 text-gray-700 dark:text-gray-300" }, entry.notes || 'Nessuna nota.')
@@ -355,7 +374,7 @@ const EntryCard = ({ entry, locationColors, absenceTypeColors, onEdit, onDelete 
 
 
 // --- From components/HistoryList.tsx ---
-const HistoryList = ({ entries, onEdit, onDelete, locations, locationColors, absenceTypes, absenceTypeColors }) => {
+const HistoryList = ({ entries, onEdit, onDelete, locationColors, permissionTypeColors }) => {
   const [filterType, setFilterType] = useState('all');
   const [filterKeyword, setFilterKeyword] = useState('');
 
@@ -365,22 +384,36 @@ const HistoryList = ({ entries, onEdit, onDelete, locations, locationColors, abs
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     
-    const monthly = { overtime: 0, absence: 0 };
+    const monthly = { overtime: 0, permission: 0 };
 
     entries.forEach(e => {
       const entryDate = new Date(e.date + 'T00:00:00'); // Ensure date is parsed in local timezone
       if (entryDate >= startOfMonth) {
-        monthly[e.type] += e.duration;
+        if(e.type === 'overtime' || e.type === 'permission') {
+            monthly[e.type] += e.duration;
+        }
       }
     });
     return { monthly };
   }, [entries]);
 
-  const filteredEntries = useMemo(() => entries.filter(entry => {
-    const typeMatch = filterType === 'all' || entry.type === filterType;
-    const keywordMatch = !filterKeyword || JSON.stringify(entry).toLowerCase().includes(filterKeyword.toLowerCase());
-    return typeMatch && keywordMatch;
-  }), [entries, filterType, filterKeyword]);
+  const filteredEntries = useMemo(() => {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    endOfMonth.setHours(23, 59, 59, 999);
+
+    return entries.filter(entry => {
+      const entryDate = new Date(entry.date + 'T00:00:00');
+      if (entryDate < startOfMonth || entryDate > endOfMonth) {
+        return false;
+      }
+      
+      const typeMatch = filterType === 'all' || entry.type === filterType;
+      const keywordMatch = !filterKeyword || JSON.stringify(entry).toLowerCase().includes(filterKeyword.toLowerCase());
+      return typeMatch && keywordMatch;
+    });
+  }, [entries, filterType, filterKeyword]);
   
   const monthName = useMemo(() => new Date().toLocaleString('it-IT', { month: 'long', year: 'numeric' }), []);
   
@@ -393,8 +426,8 @@ const HistoryList = ({ entries, onEdit, onDelete, locations, locationColors, abs
                 React.createElement('p', { className: `text-2xl font-bold text-primary dark:text-accent mt-1` }, formatDuration(totals.monthly.overtime))
             ),
             React.createElement('div', { className: "text-center" },
-                React.createElement('h4', { className: "text-md font-semibold text-gray-600 dark:text-gray-300" }, "Totale Assenze"),
-                React.createElement('p', { className: `text-2xl font-bold text-absence dark:text-red-400 mt-1` }, formatDuration(totals.monthly.absence))
+                React.createElement('h4', { className: "text-md font-semibold text-gray-600 dark:text-gray-300" }, "Totale Permessi"),
+                React.createElement('p', { className: `text-2xl font-bold text-permission dark:text-red-400 mt-1` }, formatDuration(totals.monthly.permission))
             )
         )
     ),
@@ -402,18 +435,18 @@ const HistoryList = ({ entries, onEdit, onDelete, locations, locationColors, abs
       React.createElement('h3', { className: "text-lg font-semibold mb-3 text-gray-800 dark:text-gray-200" }, "Filtra Storico"),
       React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-2 gap-4" },
         React.createElement('select', { value: filterType, onChange: e => setFilterType(e.target.value), className: "w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm" },
-            React.createElement('option', { value: "all" }, "Mostra Tutto"), React.createElement('option', { value: "overtime" }, "Solo Straordinari"), React.createElement('option', { value: "absence" }, "Solo Assenze")),
+            React.createElement('option', { value: "all" }, "Mostra Tutto"), React.createElement('option', { value: "overtime" }, "Solo Straordinari"), React.createElement('option', { value: "permission" }, "Solo Permessi")),
         React.createElement('input', { type: "text", placeholder: "Cerca per parola chiave...", value: filterKeyword, onChange: e => setFilterKeyword(e.target.value), className: "w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm" })
       )),
     React.createElement('div', { className: "space-y-4" },
-      filteredEntries.length > 0 ? filteredEntries.map(entry => React.createElement(EntryCard, { key: entry.id, entry, locationColors, absenceTypeColors, onEdit, onDelete })) : React.createElement('div', { className: "text-center py-10" }, React.createElement('p', { className: "text-gray-500 dark:text-gray-400" }, "Nessuna registrazione trovata."))
+      filteredEntries.length > 0 ? filteredEntries.map(entry => React.createElement(EntryCard, { key: entry.id, entry, locationColors, permissionTypeColors, onEdit, onDelete })) : React.createElement('div', { className: "text-center py-10" }, React.createElement('p', { className: "text-gray-500 dark:text-gray-400" }, "Nessuna registrazione trovata per il mese in corso."))
     )
   );
 };
 
 
 // --- From components/SearchView.tsx ---
-const SearchView = ({ entries, absenceTypes, locationColors, absenceTypeColors, onEdit, onDelete }) => {
+const SearchView = ({ entries, permissionTypes, locationColors, permissionTypeColors, onEdit, onDelete }) => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [filterType, setFilterType] = useState('all');
@@ -427,25 +460,25 @@ const SearchView = ({ entries, absenceTypes, locationColors, absenceTypeColors, 
     const currentYear = now.getFullYear();
     const totals = {
       overtime: 0,
-      absences: {}
+      permissions: {}
     };
-    absenceTypes.forEach(type => { totals.absences[type] = 0; });
+    permissionTypes.forEach(type => { totals.permissions[type] = 0; });
 
     entries.forEach(entry => {
       if (new Date(entry.date).getFullYear() === currentYear) {
         if (entry.type === 'overtime') {
           totals.overtime += entry.duration;
-        } else if (entry.type === 'absence') {
-          if (totals.absences[entry.absenceType] !== undefined) {
-            totals.absences[entry.absenceType] += entry.duration;
+        } else if (entry.type === 'permission') {
+          if (totals.permissions[entry.permissionType] !== undefined) {
+            totals.permissions[entry.permissionType] += entry.duration;
           } else {
-            totals.absences[entry.absenceType] = entry.duration;
+            totals.permissions[entry.permissionType] = entry.duration;
           }
         }
       }
     });
     return totals;
-  }, [entries, absenceTypes]);
+  }, [entries, permissionTypes]);
 
   const filteredEntries = useMemo(() => {
     return entries.filter(entry => {
@@ -461,10 +494,10 @@ const SearchView = ({ entries, absenceTypes, locationColors, absenceTypeColors, 
         typeMatch = true;
       } else if (filterType === 'overtime') {
         typeMatch = entry.type === 'overtime';
-      } else if (filterType === 'absence') {
-        typeMatch = entry.type === 'absence';
-      } else { // Specific absence type
-        typeMatch = entry.type === 'absence' && entry.absenceType === filterType;
+      } else if (filterType === 'permission') {
+        typeMatch = entry.type === 'permission';
+      } else { // Specific permission type
+        typeMatch = entry.type === 'permission' && entry.permissionType === filterType;
       }
       if (!typeMatch) return false;
 
@@ -481,10 +514,12 @@ const SearchView = ({ entries, absenceTypes, locationColors, absenceTypeColors, 
     setSelectedMonth(value);
     if (value) {
       const [year, month] = value.split('-').map(Number);
-      const firstDay = new Date(year, month - 1, 1);
-      const lastDay = new Date(year, month, 0);
-      setStartDate(firstDay.toISOString().split('T')[0]);
-      setEndDate(lastDay.toISOString().split('T')[0]);
+      const lastDayOfMonth = new Date(year, month, 0).getDate();
+      const monthStr = String(month).padStart(2, '0');
+      const firstDayStr = `${year}-${monthStr}-01`;
+      const lastDayStr = `${year}-${monthStr}-${String(lastDayOfMonth).padStart(2, '0')}`;
+      setStartDate(firstDayStr);
+      setEndDate(lastDayStr);
     } else {
       setStartDate('');
       setEndDate('');
@@ -499,7 +534,7 @@ const SearchView = ({ entries, absenceTypes, locationColors, absenceTypeColors, 
     for (let i = 11; i >= 0; i--) {
         const monthDate = new Date(currentYear, i, 1);
         const value = `${currentYear}-${String(i + 1).padStart(2, '0')}`;
-        const label = monthDate.toLocaleString('it-IT', { month: 'long', year: 'numeric' });
+        const label = monthDate.toLocaleString('it-IT', { month: 'long' });
         options.push(React.createElement('option', { key: value, value: value }, label));
     }
     return options;
@@ -513,9 +548,9 @@ const SearchView = ({ entries, absenceTypes, locationColors, absenceTypeColors, 
           React.createElement('h4', { className: "text-md font-semibold" }, "Totale Straordinari"),
           React.createElement('p', { className: "text-2xl font-bold mt-1" }, formatDuration(currentYearTotals.overtime))
         ),
-        Object.entries(currentYearTotals.absences).map(([type, duration]) => {
+        Object.entries(currentYearTotals.permissions).map(([type, duration]) => {
             if (duration <= 0) return null;
-            const colorClass = absenceTypeColors[type] || DEFAULT_COLOR;
+            const colorClass = permissionTypeColors[type] || DEFAULT_COLOR;
             return React.createElement('div', { key: type, className: `text-center p-3 rounded-md ${colorClass}` },
                 React.createElement('h4', { className: "text-md font-semibold" }, type),
                 React.createElement('p', { className: "text-2xl font-bold mt-1" }, formatDuration(duration))
@@ -538,8 +573,8 @@ const SearchView = ({ entries, absenceTypes, locationColors, absenceTypeColors, 
           React.createElement('select', { id: "filter-type", value: filterType, onChange: (e) => setFilterType(e.target.value), className: "mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm" },
             React.createElement('option', { value: "all" }, "Tutto"),
             React.createElement('option', { value: "overtime" }, "Straordinari"),
-            React.createElement('option', { value: "absence" }, "Tutte le Assenze"),
-            React.createElement('optgroup', { label: "Tipi di Assenza" }, absenceTypes.map(type => React.createElement('option', { key: type, value: type }, type)))
+            React.createElement('option', { value: "permission" }, "Tutti i Permessi"),
+            React.createElement('optgroup', { label: "Tipi di Permesso" }, permissionTypes.map(type => React.createElement('option', { key: type, value: type }, type)))
           )
         ),
         React.createElement('div', null,
@@ -558,7 +593,7 @@ const SearchView = ({ entries, absenceTypes, locationColors, absenceTypeColors, 
     ),
     React.createElement('div', { className: "space-y-4" },
       React.createElement('h3', { className: "text-lg font-semibold text-gray-800 dark:text-gray-200" }, `Risultati Trovati: ${filteredEntries.length}`),
-      filteredEntries.length > 0 ? filteredEntries.map(entry => React.createElement(EntryCard, { key: entry.id, entry, locationColors, absenceTypeColors, onEdit, onDelete })) : React.createElement('div', { className: "text-center py-10" }, React.createElement('p', { className: "text-gray-500 dark:text-gray-400" }, "Nessuna registrazione trovata con i filtri attuali."))
+      filteredEntries.length > 0 ? filteredEntries.map(entry => React.createElement(EntryCard, { key: entry.id, entry, locationColors, permissionTypeColors, onEdit, onDelete })) : React.createElement('div', { className: "text-center py-10" }, React.createElement('p', { className: "text-gray-500 dark:text-gray-400" }, "Nessuna registrazione trovata con i filtri attuali."))
     )
   );
 };
@@ -570,9 +605,12 @@ const SettingsView = ({ allData, onImportData }) => {
   const [exportType, setExportType] = useState('all');
   const [startDate, setStartDate] = useState(() => {
     const today = new Date();
-    return new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+    const year = today.getFullYear();
+    const monthStr = String(today.getMonth() + 1).padStart(2, '0');
+    return `${year}-${monthStr}-01`;
   });
   const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [exportSelectedMonth, setExportSelectedMonth] = useState('');
 
   const handleExport = () => {
     try {
@@ -604,6 +642,40 @@ const SettingsView = ({ allData, onImportData }) => {
     if(event.target) event.target.value = ''; 
   };
   
+  const generateMonthOptions = useMemo(() => {
+    const options = [];
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    for (let i = 11; i >= 0; i--) {
+        const monthDate = new Date(currentYear, i, 1);
+        const value = `${currentYear}-${String(i + 1).padStart(2, '0')}`;
+        const label = monthDate.toLocaleString('it-IT', { month: 'long' });
+        options.push(React.createElement('option', { key: value, value: value }, label));
+    }
+    return options;
+  }, []);
+
+  const handleExportMonthChange = (e) => {
+    const value = e.target.value;
+    setExportSelectedMonth(value);
+    if (value) {
+      const [year, month] = value.split('-').map(Number);
+      const monthStr = String(month).padStart(2, '0');
+      const lastDayOfMonth = new Date(year, month, 0).getDate();
+      const firstDayStr = `${year}-${monthStr}-01`;
+      const lastDayStr = `${year}-${monthStr}-${String(lastDayOfMonth).padStart(2, '0')}`;
+      setStartDate(firstDayStr);
+      setEndDate(lastDayStr);
+    } else {
+      const today = new Date();
+      const year = today.getFullYear();
+      const monthStr = String(today.getMonth() + 1).padStart(2, '0');
+      const firstDayStr = `${year}-${monthStr}-01`;
+      setStartDate(firstDayStr);
+      setEndDate(new Date().toISOString().split('T')[0]);
+    }
+  };
+  
   const handleExportPdf = () => {
     try {
         if (!window.jspdf || !window.jspdf.jsPDF) {
@@ -632,7 +704,7 @@ const SettingsView = ({ allData, onImportData }) => {
         });
 
         const overtimeEntries = filteredEntries.filter(e => e.type === 'overtime' && (exportType === 'all' || exportType === 'overtime'));
-        const absenceEntries = filteredEntries.filter(e => e.type === 'absence' && (exportType === 'all' || exportType === 'absence'));
+        const permissionEntries = filteredEntries.filter(e => e.type === 'permission' && (exportType === 'all' || exportType === 'permission'));
 
         const formatDate = (dateString) => new Date(dateString).toLocaleDateString('it-IT');
         const formatDuration = (minutes) => `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, '0')}m`;
@@ -667,15 +739,15 @@ const SettingsView = ({ allData, onImportData }) => {
             finalY = doc.lastAutoTable.finalY + 10;
         }
 
-        if (absenceEntries.length > 0) {
+        if (permissionEntries.length > 0) {
             doc.setFontSize(14);
-            doc.text("Assenze", 14, finalY);
+            doc.text("Permessi", 14, finalY);
             doc.autoTable({
                 startY: finalY + 2,
                 head: [['Data', 'Giustificativo', 'Inizio', 'Fine', 'Durata', 'Note']],
-                body: absenceEntries.map(e => [
+                body: permissionEntries.map(e => [
                     formatDate(e.date),
-                    e.absenceType,
+                    e.permissionType,
                     e.startTime,
                     e.endTime,
                     formatDuration(e.duration),
@@ -687,7 +759,7 @@ const SettingsView = ({ allData, onImportData }) => {
             finalY = doc.lastAutoTable.finalY + 10;
         }
 
-        if (overtimeEntries.length === 0 && absenceEntries.length === 0) {
+        if (overtimeEntries.length === 0 && permissionEntries.length === 0) {
             doc.text("Nessun dato da esportare per il periodo e il tipo selezionato.", 14, finalY);
         }
 
@@ -705,34 +777,46 @@ const SettingsView = ({ allData, onImportData }) => {
       React.createElement('div', { className: "space-y-4" },
         React.createElement('div', null,
           React.createElement('button', { onClick: handleExport, className: "w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-secondary hover:bg-accent" }, React.createElement(DownloadIcon, { className: "w-5 h-5 mr-2" }), "Esporta Dati"),
-          React.createElement('p', { className: "mt-2 text-sm text-gray-500 dark:text-gray-400" }, "Salva una copia di tutti i tuoi dati (straordinari, assenze, sedi, etc.) in un file.")
+          React.createElement('p', { className: "mt-2 text-sm text-gray-500 dark:text-gray-400" }, "Salva una copia di tutti i tuoi dati (straordinari, permessi, sedi, etc.) in un file.")
         ),
         React.createElement('div', null,
           React.createElement('input', { type: "file", ref: fileInputRef, onChange: handleFileChange, className: "hidden", accept: ".json" }),
           React.createElement('button', { onClick: () => fileInputRef.current?.click(), className: "w-full inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-base font-medium rounded-md shadow-sm text-dark dark:text-light bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600" }, React.createElement(UploadIcon, { className: "w-5 h-5 mr-2" }), "Importa Dati"),
-          React.createElement('p', { className: "mt-2 text-sm text-gray-500 dark:text-gray-400" }, "Ripristina i dati da un file di backup. Attenzione: i dati attuali verranno sovrascritti.")
+          React.createElement('p', { className: "mt-2 text-sm text-gray-500 dark:text-gray-400" }, "Ripristina i dati da un file di backup. Attenzione: i dati attuali verranno sovrascriti.")
         )
       )
     ),
     React.createElement('div', { className: "bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md" },
       React.createElement('h3', { className: "text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200" }, "Esporta Report PDF"),
       React.createElement('div', { className: "space-y-4" },
+        React.createElement('div', null,
+            React.createElement('label', { htmlFor: "export-month-select", className: "block text-sm font-medium text-gray-700 dark:text-gray-300" }, "Seleziona Mese (Rapido)"),
+            React.createElement('select', { 
+                id: "export-month-select", 
+                value: exportSelectedMonth, 
+                onChange: handleExportMonthChange, 
+                className: "mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm" 
+            },
+                React.createElement('option', { value: "" }, "Periodo personalizzato"),
+                generateMonthOptions
+            )
+        ),
         React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-2 gap-4" },
             React.createElement('div', null,
                 React.createElement('label', { htmlFor: "startDate", className: "block text-sm font-medium text-gray-700 dark:text-gray-300" }, "Data Inizio"),
-                React.createElement('input', { type: "date", id: "startDate", value: startDate, onChange: (e) => setStartDate(e.target.value), required: true, className: "mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm" })
+                React.createElement('input', { type: "date", id: "startDate", value: startDate, onChange: (e) => { setStartDate(e.target.value); setExportSelectedMonth(''); }, required: true, className: "mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm", disabled: !!exportSelectedMonth })
             ),
             React.createElement('div', null,
                 React.createElement('label', { htmlFor: "endDate", className: "block text-sm font-medium text-gray-700 dark:text-gray-300" }, "Data Fine"),
-                React.createElement('input', { type: "date", id: "endDate", value: endDate, onChange: (e) => setEndDate(e.target.value), required: true, className: "mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm" })
+                React.createElement('input', { type: "date", id: "endDate", value: endDate, onChange: (e) => { setEndDate(e.target.value); setExportSelectedMonth(''); }, required: true, className: "mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm", disabled: !!exportSelectedMonth })
             )
         ),
         React.createElement('div', null,
             React.createElement('label', { htmlFor: "exportType", className: "block text-sm font-medium text-gray-700 dark:text-gray-300" }, "Tipo di dati"),
             React.createElement('select', { id: "exportType", value: exportType, onChange: (e) => setExportType(e.target.value), className: "mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm" },
-                React.createElement('option', { value: "all" }, "Straordinari e Assenze"),
+                React.createElement('option', { value: "all" }, "Straordinari e Permessi"),
                 React.createElement('option', { value: "overtime" }, "Solo Straordinari"),
-                React.createElement('option', { value: "absence" }, "Solo Assenze")
+                React.createElement('option', { value: "permission" }, "Solo Permessi")
             )
         ),
         React.createElement('button', { onClick: handleExportPdf, className: "w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-primary hover:bg-primary-dark" }, React.createElement(DownloadIcon, { className: "w-5 h-5 mr-2" }), "Genera e Scarica PDF")
@@ -750,7 +834,7 @@ const App = () => {
   const [isAddMenuOpen, setAddMenuOpen] = useState(false);
   const addMenuRef = useRef(null);
   
-  const { entries, locations, locationColors, absenceTypes, absenceTypeColors, addEntry, updateEntry, deleteEntry, importData } = data;
+  const { entries, locations, locationColors, permissionTypes, permissionTypeColors, addEntry, updateEntry, deleteEntry, importData } = data;
 
   useEffect(() => {
     const LAST_PROMPT_KEY = 'log_last_backup_prompt_month';
@@ -780,8 +864,8 @@ const App = () => {
   };
 
   const handleAddOvertime = () => { setEditingEntry(null); setCurrentView('overtimeForm'); setAddMenuOpen(false); };
-  const handleAddAbsence = () => { setEditingEntry(null); setCurrentView('absenceForm'); setAddMenuOpen(false); };
-  const handleEdit = (entry) => { setEditingEntry(entry); setCurrentView(entry.type === 'overtime' ? 'overtimeForm' : 'absenceForm'); };
+  const handleAddPermission = () => { setEditingEntry(null); setCurrentView('permissionForm'); setAddMenuOpen(false); };
+  const handleEdit = (entry) => { setEditingEntry(entry); setCurrentView(entry.type === 'overtime' ? 'overtimeForm' : 'permissionForm'); };
   
   const handleSave = (entryData) => {
     (entryData.id ? updateEntry : addEntry)(entryData);
@@ -791,13 +875,13 @@ const App = () => {
   
   const renderView = () => {
     switch (currentView) {
-      case 'dashboard': return React.createElement(Dashboard, { onAddOvertime: handleAddOvertime, onAddAbsence: handleAddAbsence });
+      case 'dashboard': return React.createElement(Dashboard, { onAddOvertime: handleAddOvertime, onAddPermission: handleAddPermission });
       case 'overtimeForm': return React.createElement(OvertimeForm, { onSave: handleSave, onCancel: () => handleNavigation(editingEntry ? 'history' : 'dashboard'), existingEntry: editingEntry, locations });
-      case 'absenceForm': return React.createElement(AbsenceForm, { onSave: handleSave, onCancel: () => handleNavigation(editingEntry ? 'history' : 'dashboard'), existingEntry: editingEntry, absenceTypes });
-      case 'history': return React.createElement(HistoryList, { entries, onEdit: handleEdit, onDelete: deleteEntry, locations, locationColors, absenceTypes, absenceTypeColors });
-      case 'search': return React.createElement(SearchView, { entries, absenceTypes, locationColors, absenceTypeColors, onEdit: handleEdit, onDelete: deleteEntry });
+      case 'permissionForm': return React.createElement(PermissionForm, { onSave: handleSave, onCancel: () => handleNavigation(editingEntry ? 'history' : 'dashboard'), existingEntry: editingEntry, permissionTypes });
+      case 'history': return React.createElement(HistoryList, { entries, onEdit: handleEdit, onDelete: deleteEntry, locationColors, permissionTypeColors });
+      case 'search': return React.createElement(SearchView, { entries, permissionTypes, locationColors, permissionTypeColors, onEdit: handleEdit, onDelete: deleteEntry });
       case 'settings': return React.createElement(SettingsView, { allData: data, onImportData: importData });
-      default: return React.createElement(Dashboard, { entries, onAddOvertime: handleAddOvertime, onAddAbsence: handleAddAbsence });
+      default: return React.createElement(Dashboard, { entries, onAddOvertime: handleAddOvertime, onAddPermission: handleAddPermission });
     }
   };
 
@@ -815,7 +899,7 @@ const App = () => {
       ),
       React.createElement('div', { className: "mt-auto p-4 space-y-3" },
         React.createElement('button', { onClick: handleAddOvertime, className: "w-full flex items-center justify-center px-4 py-3 text-base font-medium rounded-md shadow-sm text-white bg-primary hover:bg-primary-dark" }, React.createElement(PlusIcon, { className: "w-5 h-5 mr-2" }), "Straordinario"),
-        React.createElement('button', { onClick: handleAddAbsence, className: "w-full flex items-center justify-center px-4 py-3 text-base font-medium rounded-md shadow-sm text-white bg-absence hover:bg-absence-dark" }, React.createElement(BedIcon, { className: "w-5 h-5 mr-2" }), "Assenza")
+        React.createElement('button', { onClick: handleAddPermission, className: "w-full flex items-center justify-center px-4 py-3 text-base font-medium rounded-md shadow-sm text-white bg-permission hover:bg-permission-dark" }, React.createElement(BedIcon, { className: "w-5 h-5 mr-2" }), "Permesso")
       )
     ),
     React.createElement('div', { className: "flex-1 flex flex-col min-w-0" },
@@ -825,7 +909,7 @@ const App = () => {
           React.createElement('button', { onClick: () => setAddMenuOpen(!isAddMenuOpen), className: "bg-secondary hover:bg-accent text-white p-2 rounded-full shadow-lg" }, React.createElement(PlusIcon, { className: "w-6 h-6" })),
           isAddMenuOpen && React.createElement('div', { className: "absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg z-20" },
             React.createElement('button', { onClick: handleAddOvertime, className: "w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" }, "Straordinario"),
-            React.createElement('button', { onClick: handleAddAbsence, className: "w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" }, "Assenza")
+            React.createElement('button', { onClick: handleAddPermission, className: "w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" }, "Permesso")
           )
         )
       ),
