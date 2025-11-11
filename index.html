@@ -56,6 +56,13 @@ const COLOR_PALETTE = [
   'bg-teal-200 text-teal-800 dark:bg-teal-700 dark:text-teal-100',
 ];
 const DEFAULT_COLOR = 'bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-gray-200';
+const INITIAL_ABSENCE_COLORS = {
+  'Malattia': 'bg-red-200 text-red-800 dark:bg-red-700 dark:text-red-100',
+  'Ferie': 'bg-yellow-200 text-yellow-800 dark:bg-yellow-700 dark:text-yellow-100',
+  'Permesso Retribuito': 'bg-blue-200 text-blue-800 dark:bg-blue-700 dark:text-blue-100',
+  'Permesso non Retribuito': 'bg-purple-200 text-purple-800 dark:bg-purple-700 dark:text-purple-100',
+};
+
 
 // --- From components/icons/Icons.tsx ---
 const PlusIcon = (props) => ( React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", ...props }, React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M12 4.5v15m7.5-7.5h-15" })));
@@ -68,6 +75,7 @@ const CogIcon = (props) => ( React.createElement('svg', { xmlns: "http://www.w3.
 const DownloadIcon = (props) => ( React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", ...props }, React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" })));
 const UploadIcon = (props) => ( React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", ...props }, React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" })));
 const BedIcon = (props) => ( React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", ...props }, React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" })));
+const MagnifyingGlassIcon = (props) => ( React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", ...props }, React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", d: "M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" })));
 
 
 // --- From hooks/useLogData.ts ---
@@ -82,7 +90,7 @@ const useLogData = () => {
   const [locations, setLocations] = useState([]);
   const [locationColors, setLocationColors] = useState({});
   const [absenceTypes, setAbsenceTypes] = useState(['Ferie', 'Malattia', 'Permesso Retribuito', 'Permesso non Retribuito']);
-  const [absenceTypeColors, setAbsenceTypeColors] = useState({});
+  const [absenceTypeColors, setAbsenceTypeColors] = useState(INITIAL_ABSENCE_COLORS);
 
   const saveData = useCallback((key, data) => {
     try {
@@ -105,7 +113,9 @@ const useLogData = () => {
       if (storedAbsenceTypes) setAbsenceTypes(JSON.parse(storedAbsenceTypes));
 
       const storedAbsenceTypeColors = localStorage.getItem(ABSENCE_TYPE_COLORS_KEY);
-      if (storedAbsenceTypeColors) setAbsenceTypeColors(JSON.parse(storedAbsenceTypeColors));
+      if (storedAbsenceTypeColors) {
+          setAbsenceTypeColors(prev => ({ ...INITIAL_ABSENCE_COLORS, ...JSON.parse(storedAbsenceTypeColors) }));
+      }
     } catch (error) { console.error("Failed to load data from localStorage", error); }
   }, [saveData]);
 
@@ -113,8 +123,11 @@ const useLogData = () => {
     if (!value || state.includes(value)) return;
 
     const updatedState = [...state, value];
-    const colorIndex = state.length % COLOR_PALETTE.length;
-    const newColor = COLOR_PALETTE[colorIndex];
+    
+    const usedColors = Object.values(colorState);
+    const availableColors = COLOR_PALETTE.filter(c => !usedColors.includes(c));
+    const newColor = availableColors.length > 0 ? availableColors[0] : COLOR_PALETTE[state.length % COLOR_PALETTE.length];
+
     const updatedColors = { ...colorState, [value]: newColor };
 
     setter(updatedState);
@@ -317,13 +330,35 @@ const Dashboard = ({ onAddOvertime, onAddAbsence }) => {
   );
 };
 
+// --- From components/EntryCard.tsx ---
+const EntryCard = ({ entry, locationColors, absenceTypeColors, onEdit, onDelete }) => {
+  const isOvertime = entry.type === 'overtime';
+  const colorClass = isOvertime ? (locationColors[entry.location] || DEFAULT_COLOR) : (absenceTypeColors[entry.absenceType] || DEFAULT_COLOR);
+  const tag = isOvertime ? entry.location : entry.absenceType;
+  const formatDate = (dateString) => new Date(dateString).toLocaleDateString('it-IT', { weekday: 'short', year: 'numeric', month: 'long', day: 'numeric' });
+  const formatDuration = (minutes) => `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, '0')}m`;
+
+  return React.createElement('div', { className: "bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md flex flex-col md:flex-row md:items-center md:justify-between" },
+    React.createElement('div', { className: "flex-grow" },
+      React.createElement('div', { className: "flex justify-between items-start" },
+        React.createElement('div', null, React.createElement('p', { className: `font-bold text-lg ${isOvertime ? 'text-primary dark:text-accent' : 'text-absence dark:text-red-400'}` }, formatDate(entry.date)), React.createElement('p', { className: "text-sm text-gray-600 dark:text-gray-400" }, `${entry.startTime} - ${entry.endTime}`)),
+        React.createElement('div', { className: "text-right md:hidden" }, React.createElement('p', { className: "font-bold text-xl text-gray-800 dark:text-gray-200" }, formatDuration(entry.duration)), React.createElement('span', { className: `px-2 py-1 text-xs font-semibold rounded-full ${colorClass}` }, tag))
+      ),
+      React.createElement('p', { className: "mt-2 text-gray-700 dark:text-gray-300" }, entry.notes || 'Nessuna nota.')
+    ),
+    React.createElement('div', { className: "flex items-center mt-4 md:mt-0 md:ml-4" },
+      React.createElement('div', { className: "hidden md:flex flex-col items-end mr-4" }, React.createElement('p', { className: "font-bold text-xl text-gray-800 dark:text-gray-200" }, formatDuration(entry.duration)), React.createElement('span', { className: `px-2 py-1 text-xs font-semibold rounded-full ${colorClass}` }, tag)),
+      React.createElement('div', { className: "flex space-x-2" }, React.createElement('button', { onClick: () => onEdit(entry), className: "p-2 text-blue-600 hover:bg-blue-100 dark:hover:bg-gray-700 rounded-full" }, React.createElement(PencilIcon, { className: "w-5 h-5" })), React.createElement('button', { onClick: () => onDelete(entry.id), className: "p-2 text-red-600 hover:bg-red-100 dark:hover:bg-gray-700 rounded-full" }, React.createElement(TrashIcon, { className: "w-5 h-5" })))
+    )
+  );
+};
+
 
 // --- From components/HistoryList.tsx ---
 const HistoryList = ({ entries, onEdit, onDelete, locations, locationColors, absenceTypes, absenceTypeColors }) => {
   const [filterType, setFilterType] = useState('all');
   const [filterKeyword, setFilterKeyword] = useState('');
 
-  const formatDate = (dateString) => new Date(dateString).toLocaleDateString('it-IT', { weekday: 'short', year: 'numeric', month: 'long', day: 'numeric' });
   const formatDuration = (minutes) => `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, '0')}m`;
 
   const totals = useMemo(() => {
@@ -348,26 +383,6 @@ const HistoryList = ({ entries, onEdit, onDelete, locations, locationColors, abs
   }), [entries, filterType, filterKeyword]);
   
   const monthName = useMemo(() => new Date().toLocaleString('it-IT', { month: 'long', year: 'numeric' }), []);
-
-  const EntryCard = ({ entry }) => {
-    const isOvertime = entry.type === 'overtime';
-    const colorClass = isOvertime ? (locationColors[entry.location] || DEFAULT_COLOR) : (absenceTypeColors[entry.absenceType] || DEFAULT_COLOR);
-    const tag = isOvertime ? entry.location : entry.absenceType;
-
-    return React.createElement('div', { className: "bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md flex flex-col md:flex-row md:items-center md:justify-between" },
-      React.createElement('div', { className: "flex-grow" },
-        React.createElement('div', { className: "flex justify-between items-start" },
-          React.createElement('div', null, React.createElement('p', { className: `font-bold text-lg ${isOvertime ? 'text-primary dark:text-accent' : 'text-absence dark:text-red-400'}` }, formatDate(entry.date)), React.createElement('p', { className: "text-sm text-gray-600 dark:text-gray-400" }, `${entry.startTime} - ${entry.endTime}`)),
-          React.createElement('div', { className: "text-right md:hidden" }, React.createElement('p', { className: "font-bold text-xl text-gray-800 dark:text-gray-200" }, formatDuration(entry.duration)), React.createElement('span', { className: `px-2 py-1 text-xs font-semibold rounded-full ${colorClass}` }, tag))
-        ),
-        React.createElement('p', { className: "mt-2 text-gray-700 dark:text-gray-300" }, entry.notes || 'Nessuna nota.')
-      ),
-      React.createElement('div', { className: "flex items-center mt-4 md:mt-0 md:ml-4" },
-        React.createElement('div', { className: "hidden md:flex flex-col items-end mr-4" }, React.createElement('p', { className: "font-bold text-xl text-gray-800 dark:text-gray-200" }, formatDuration(entry.duration)), React.createElement('span', { className: `px-2 py-1 text-xs font-semibold rounded-full ${colorClass}` }, tag)),
-        React.createElement('div', { className: "flex space-x-2" }, React.createElement('button', { onClick: () => onEdit(entry), className: "p-2 text-blue-600 hover:bg-blue-100 dark:hover:bg-gray-700 rounded-full" }, React.createElement(PencilIcon, { className: "w-5 h-5" })), React.createElement('button', { onClick: () => onDelete(entry.id), className: "p-2 text-red-600 hover:bg-red-100 dark:hover:bg-gray-700 rounded-full" }, React.createElement(TrashIcon, { className: "w-5 h-5" })))
-      )
-    );
-  };
   
   return React.createElement('div', { className: "space-y-6" },
     React.createElement('div', { className: "bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md" },
@@ -391,66 +406,159 @@ const HistoryList = ({ entries, onEdit, onDelete, locations, locationColors, abs
         React.createElement('input', { type: "text", placeholder: "Cerca per parola chiave...", value: filterKeyword, onChange: e => setFilterKeyword(e.target.value), className: "w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm" })
       )),
     React.createElement('div', { className: "space-y-4" },
-      filteredEntries.length > 0 ? filteredEntries.map(entry => React.createElement(EntryCard, { key: entry.id, entry: entry })) : React.createElement('div', { className: "text-center py-10" }, React.createElement('p', { className: "text-gray-500 dark:text-gray-400" }, "Nessuna registrazione trovata."))
+      filteredEntries.length > 0 ? filteredEntries.map(entry => React.createElement(EntryCard, { key: entry.id, entry, locationColors, absenceTypeColors, onEdit, onDelete })) : React.createElement('div', { className: "text-center py-10" }, React.createElement('p', { className: "text-gray-500 dark:text-gray-400" }, "Nessuna registrazione trovata."))
     )
   );
 };
 
 
-// --- From components/StatsView.tsx ---
-const StatsView = ({ entries }) => {
-  const overtimeEntries = useMemo(() => entries.filter(e => e.type === 'overtime'), [entries]);
-  const now = new Date();
-  const currentMonth = now.getMonth();
-  const currentYear = now.getFullYear();
+// --- From components/SearchView.tsx ---
+const SearchView = ({ entries, absenceTypes, locationColors, absenceTypeColors, onEdit, onDelete }) => {
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [filterType, setFilterType] = useState('all');
+  const [filterKeyword, setFilterKeyword] = useState('');
+  const [selectedMonth, setSelectedMonth] = useState('');
 
-  const monthlyData = useMemo(() => {
-    const data = Array.from({ length: new Date(currentYear, currentMonth + 1, 0).getDate() }, (_, i) => ({ day: i + 1, ore: 0 }));
-    overtimeEntries.forEach(entry => {
-      const entryDate = new Date(entry.date);
-      if (entryDate.getMonth() === currentMonth && entryDate.getFullYear() === currentYear) {
-        data[entryDate.getDate() - 1].ore += entry.duration / 60;
-      }
-    });
-    return data.map(d => ({ ...d, ore: parseFloat(d.ore.toFixed(2)) }));
-  }, [overtimeEntries, currentMonth, currentYear]);
+  const formatDuration = (minutes) => `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, '0')}m`;
 
-  const annualData = useMemo(() => {
-    const data = Array(12).fill(0).map((_, i) => ({ name: new Date(0, i).toLocaleString('it-IT', {month: 'short'}), ore: 0 }));
-    overtimeEntries.forEach(entry => {
+  const currentYearTotals = useMemo(() => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const totals = {
+      overtime: 0,
+      absences: {}
+    };
+    absenceTypes.forEach(type => { totals.absences[type] = 0; });
+
+    entries.forEach(entry => {
       if (new Date(entry.date).getFullYear() === currentYear) {
-        data[new Date(entry.date).getMonth()].ore += entry.duration / 60;
+        if (entry.type === 'overtime') {
+          totals.overtime += entry.duration;
+        } else if (entry.type === 'absence') {
+          if (totals.absences[entry.absenceType] !== undefined) {
+            totals.absences[entry.absenceType] += entry.duration;
+          } else {
+            totals.absences[entry.absenceType] = entry.duration;
+          }
+        }
       }
     });
-    return data.map(d => ({ ...d, ore: parseFloat(d.ore.toFixed(2)) }));
-  }, [overtimeEntries, currentYear]);
-  
-  const CustomTooltip = ({ active, payload, label, titlePrefix }) => active && payload?.length ? React.createElement('div', { className: "bg-white dark:bg-gray-800 p-2 border border-gray-300 dark:border-gray-600 rounded shadow-md" }, React.createElement('p', { className: "label" }, `${titlePrefix} ${label} : ${payload[0].value} ore`)) : null;
+    return totals;
+  }, [entries, absenceTypes]);
 
-  return React.createElement('div', { className: "space-y-8" },
-    React.createElement('div', { className: "bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md" },
-      React.createElement('h3', { className: "text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200" }, `Riepilogo Straordinari Mensile (${new Date().toLocaleString('it-IT', { month: 'long' })})`),
-      React.createElement(ResponsiveContainer, { width: "100%", height: 300 },
-        React.createElement(BarChart, { data: monthlyData },
-          React.createElement(CartesianGrid, { strokeDasharray: "3 3", stroke: "rgba(128, 128, 128, 0.3)" }),
-          React.createElement(XAxis, { dataKey: "day", tick: { fill: 'currentColor', fontSize: 12 } }),
-          React.createElement(YAxis, { unit: "h", tick: { fill: 'currentColor', fontSize: 12 } }),
-          React.createElement(Tooltip, { content: React.createElement(CustomTooltip, { titlePrefix: "Giorno" }), cursor: { fill: 'rgba(66, 165, 245, 0.2)' } }),
-          React.createElement(Bar, { dataKey: "ore", fill: "#42A5F5", name:"Ore Straordinario" })
+  const filteredEntries = useMemo(() => {
+    return entries.filter(entry => {
+      const entryDate = new Date(entry.date + 'T00:00:00');
+      const start = startDate ? new Date(startDate + 'T00:00:00') : null;
+      const end = endDate ? new Date(endDate + 'T00:00:00') : null;
+      
+      if (start && entryDate < start) return false;
+      if (end && entryDate > end) return false;
+
+      let typeMatch = false;
+      if (filterType === 'all') {
+        typeMatch = true;
+      } else if (filterType === 'overtime') {
+        typeMatch = entry.type === 'overtime';
+      } else if (filterType === 'absence') {
+        typeMatch = entry.type === 'absence';
+      } else { // Specific absence type
+        typeMatch = entry.type === 'absence' && entry.absenceType === filterType;
+      }
+      if (!typeMatch) return false;
+
+      if (filterKeyword && !JSON.stringify(entry).toLowerCase().includes(filterKeyword.toLowerCase())) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [entries, startDate, endDate, filterType, filterKeyword]);
+
+  const handleMonthChange = (e) => {
+    const value = e.target.value;
+    setSelectedMonth(value);
+    if (value) {
+      const [year, month] = value.split('-').map(Number);
+      const firstDay = new Date(year, month - 1, 1);
+      const lastDay = new Date(year, month, 0);
+      setStartDate(firstDay.toISOString().split('T')[0]);
+      setEndDate(lastDay.toISOString().split('T')[0]);
+    } else {
+      setStartDate('');
+      setEndDate('');
+    }
+  };
+  
+  const generateMonthOptions = useMemo(() => {
+    const options = [];
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    // Current year
+    for (let i = 11; i >= 0; i--) {
+        const monthDate = new Date(currentYear, i, 1);
+        const value = `${currentYear}-${String(i + 1).padStart(2, '0')}`;
+        const label = monthDate.toLocaleString('it-IT', { month: 'long', year: 'numeric' });
+        options.push(React.createElement('option', { key: value, value: value }, label));
+    }
+    return options;
+  }, []);
+
+  return React.createElement('div', { className: "space-y-6" },
+    React.createElement('div', { className: "bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md" },
+      React.createElement('h3', { className: "text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200" }, `Riepilogo Anno ${new Date().getFullYear()}`),
+      React.createElement('div', { className: "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4" },
+        React.createElement('div', { className: "text-center p-3 rounded-md bg-green-200 text-green-800 dark:bg-green-700 dark:text-green-100" },
+          React.createElement('h4', { className: "text-md font-semibold" }, "Totale Straordinari"),
+          React.createElement('p', { className: "text-2xl font-bold mt-1" }, formatDuration(currentYearTotals.overtime))
+        ),
+        Object.entries(currentYearTotals.absences).map(([type, duration]) => {
+            if (duration <= 0) return null;
+            const colorClass = absenceTypeColors[type] || DEFAULT_COLOR;
+            return React.createElement('div', { key: type, className: `text-center p-3 rounded-md ${colorClass}` },
+                React.createElement('h4', { className: "text-md font-semibold" }, type),
+                React.createElement('p', { className: "text-2xl font-bold mt-1" }, formatDuration(duration))
+            )
+        })
+      )
+    ),
+    React.createElement('div', { className: "bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md" },
+      React.createElement('h3', { className: "text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200" }, "Filtra Risultati"),
+      React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-2 gap-4" },
+        React.createElement('div', null,
+          React.createElement('label', { htmlFor: "month-select", className: "block text-sm font-medium text-gray-700 dark:text-gray-300" }, "Seleziona Mese"),
+          React.createElement('select', { id: "month-select", value: selectedMonth, onChange: handleMonthChange, className: "mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm" },
+            React.createElement('option', { value: "" }, "Periodo personalizzato"),
+            generateMonthOptions
+          )
+        ),
+        React.createElement('div', null,
+          React.createElement('label', { htmlFor: "filter-type", className: "block text-sm font-medium text-gray-700 dark:text-gray-300" }, "Tipo"),
+          React.createElement('select', { id: "filter-type", value: filterType, onChange: (e) => setFilterType(e.target.value), className: "mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm" },
+            React.createElement('option', { value: "all" }, "Tutto"),
+            React.createElement('option', { value: "overtime" }, "Straordinari"),
+            React.createElement('option', { value: "absence" }, "Tutte le Assenze"),
+            React.createElement('optgroup', { label: "Tipi di Assenza" }, absenceTypes.map(type => React.createElement('option', { key: type, value: type }, type)))
+          )
+        ),
+        React.createElement('div', null,
+          React.createElement('label', { htmlFor: "startDate-search", className: "block text-sm font-medium text-gray-700 dark:text-gray-300" }, "Da"),
+          React.createElement('input', { type: "date", id: "startDate-search", value: startDate, onChange: (e) => { setStartDate(e.target.value); setSelectedMonth(''); }, className: "mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm", disabled: !!selectedMonth })
+        ),
+        React.createElement('div', null,
+          React.createElement('label', { htmlFor: "endDate-search", className: "block text-sm font-medium text-gray-700 dark:text-gray-300" }, "A"),
+          React.createElement('input', { type: "date", id: "endDate-search", value: endDate, onChange: (e) => { setEndDate(e.target.value); setSelectedMonth(''); }, className: "mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm", disabled: !!selectedMonth })
+        ),
+        React.createElement('div', { className: "md:col-span-2" },
+          React.createElement('label', { htmlFor: "keyword-search", className: "block text-sm font-medium text-gray-700 dark:text-gray-300" }, "Parola chiave"),
+          React.createElement('input', { type: "text", id: "keyword-search", placeholder: "Cerca in note, sedi, etc...", value: filterKeyword, onChange: (e) => setFilterKeyword(e.target.value), className: "mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm" })
         )
       )
     ),
-    React.createElement('div', { className: "bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md" },
-      React.createElement('h3', { className: "text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200" }, `Riepilogo Straordinari Annuale (${currentYear})`),
-        React.createElement(ResponsiveContainer, { width: "100%", height: 300 },
-            React.createElement(BarChart, { data: annualData },
-                React.createElement(CartesianGrid, { strokeDasharray: "3 3", stroke: "rgba(128, 128, 128, 0.3)" }),
-                React.createElement(XAxis, { dataKey: "name", tick: { fill: 'currentColor', fontSize: 12 } }),
-                React.createElement(YAxis, { unit: "h", tick: { fill: 'currentColor', fontSize: 12 } }),
-                React.createElement(Tooltip, { content: React.createElement(CustomTooltip, { titlePrefix: "" }), cursor: { fill: 'rgba(13, 71, 161, 0.2)' } }),
-                React.createElement(Bar, { dataKey: "ore", fill: "#0D47A1", name: "Ore Straordinario" })
-            )
-        )
+    React.createElement('div', { className: "space-y-4" },
+      React.createElement('h3', { className: "text-lg font-semibold text-gray-800 dark:text-gray-200" }, `Risultati Trovati: ${filteredEntries.length}`),
+      filteredEntries.length > 0 ? filteredEntries.map(entry => React.createElement(EntryCard, { key: entry.id, entry, locationColors, absenceTypeColors, onEdit, onDelete })) : React.createElement('div', { className: "text-center py-10" }, React.createElement('p', { className: "text-gray-500 dark:text-gray-400" }, "Nessuna registrazione trovata con i filtri attuali."))
     )
   );
 };
@@ -687,7 +795,7 @@ const App = () => {
       case 'overtimeForm': return React.createElement(OvertimeForm, { onSave: handleSave, onCancel: () => handleNavigation(editingEntry ? 'history' : 'dashboard'), existingEntry: editingEntry, locations });
       case 'absenceForm': return React.createElement(AbsenceForm, { onSave: handleSave, onCancel: () => handleNavigation(editingEntry ? 'history' : 'dashboard'), existingEntry: editingEntry, absenceTypes });
       case 'history': return React.createElement(HistoryList, { entries, onEdit: handleEdit, onDelete: deleteEntry, locations, locationColors, absenceTypes, absenceTypeColors });
-      case 'stats': return React.createElement(StatsView, { entries });
+      case 'search': return React.createElement(SearchView, { entries, absenceTypes, locationColors, absenceTypeColors, onEdit: handleEdit, onDelete: deleteEntry });
       case 'settings': return React.createElement(SettingsView, { allData: data, onImportData: importData });
       default: return React.createElement(Dashboard, { entries, onAddOvertime: handleAddOvertime, onAddAbsence: handleAddAbsence });
     }
@@ -702,7 +810,7 @@ const App = () => {
       React.createElement('div', { className: "flex flex-col p-4 space-y-2" },
         React.createElement(DesktopNavItem, { view: "dashboard", label: "Home", icon: React.createElement(HomeIcon) }),
         React.createElement(DesktopNavItem, { view: "history", label: "Storico", icon: React.createElement(CalendarIcon) }),
-        React.createElement(DesktopNavItem, { view: "stats", label: "Statistiche", icon: React.createElement(ChartBarIcon) }),
+        React.createElement(DesktopNavItem, { view: "search", label: "Ricerca", icon: React.createElement(MagnifyingGlassIcon) }),
         React.createElement(DesktopNavItem, { view: "settings", label: "Impostazioni", icon: React.createElement(CogIcon) })
       ),
       React.createElement('div', { className: "mt-auto p-4 space-y-3" },
@@ -727,7 +835,7 @@ const App = () => {
       React.createElement('div', { className: "flex justify-around items-center h-full" },
         React.createElement(NavItem, { view: "dashboard", label: "Home", icon: React.createElement(HomeIcon, { className: "w-6 h-6" }) }),
         React.createElement(NavItem, { view: "history", label: "Storico", icon: React.createElement(CalendarIcon, { className: "w-6 h-6" }) }),
-        React.createElement(NavItem, { view: "stats", label: "Statistiche", icon: React.createElement(ChartBarIcon, { className: "w-6 h-6" }) }),
+        React.createElement(NavItem, { view: "search", label: "Ricerca", icon: React.createElement(MagnifyingGlassIcon, { className: "w-6 h-6" }) }),
         React.createElement(NavItem, { view: "settings", label: "Impostazioni", icon: React.createElement(CogIcon, { className: "w-6 h-6" }) })
       )
     )
